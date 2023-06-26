@@ -1,0 +1,121 @@
+import os
+import time
+from cryptography.hazmat.primitives.asymmetric import rsa, padding
+from cryptography.hazmat.primitives import serialization, hashes
+from cryptography.hazmat.backends import default_backend
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+
+if not os.path.exists('RSAkeys'):
+    print('检测到没有RSAkeys文件夹，自动创建。\n')
+    os.makedirs('RSAkeys')
+
+if not os.path.exists('RSAkeys/my'):
+    os.makedirs('RSAkeys/my')
+
+if not os.path.exists('RSAkeys/friend'):
+    os.makedirs('RSAkeys/friend')
+
+def generate_key_pair():
+    private_key = rsa.generate_private_key(
+        public_exponent=65537,
+        key_size=4096,
+        backend=default_backend()
+    )
+
+    private_pem = private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption()
+    )
+
+    public_pem = private_key.public_key().public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo
+    )
+
+    with open('RSAkeys/my/private.txt', 'wb') as f:
+        f.write(private_pem)
+
+    with open('RSAkeys/my/public.txt', 'wb') as f:
+        f.write(public_pem)
+
+    print('RSA密钥对生成成功，并已保存到RSAkeys/my/public.txt和RSAkeys/my/private.txt')
+
+def import_public_key():
+    path = input('请输入要导入的公钥文件的路径：')
+    if os.path.isfile(path):
+        with open(path, 'rb') as f:
+            public_pem = f.read()
+            with open('RSAkeys/friend/public.txt', 'wb') as fw:
+                fw.write(public_pem)
+        print('公钥导入成功！')
+    else:
+        print('文件不存在，请检查路径是否正确。')
+
+def encrypt_data():
+    if os.path.exists('RSAkeys/friend/public.txt'):
+        with open('RSAkeys/friend/public.txt', 'rb') as f:
+            public_pem = f.read()
+            public_key = serialization.load_pem_public_key(public_pem, backend=default_backend())
+
+            data = input('请输入要加密的数据：').encode('utf-8')
+            ciphertext = public_key.encrypt(data, padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                                                               algorithm=hashes.SHA256(), label=None))
+            print('加密后的数据为：', ciphertext.hex())
+    else:
+        use_own_public_key = input('未导入他人公钥，是否使用自己的公钥进行加密？ (1=是，2=否): ')
+        if use_own_public_key == '1':
+            with open('RSAkeys/my/public.txt', 'rb') as f:
+                public_pem = f.read()
+                public_key = serialization.load_pem_public_key(public_pem, backend=default_backend())
+
+                data = input('请输入要加密的数据：').encode('utf-8')
+                ciphertext = public_key.encrypt(data, padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                                                                   algorithm=hashes.SHA256(), label=None))
+                print('加密后的数据为：', ciphertext.hex())
+        else:
+            print('请先导入他人公钥或生成自己的密钥对。')
+
+
+def decrypt_data():
+    with open('RSAkeys/my/private.txt', 'rb') as f:
+        private_pem = f.read()
+        private_key = serialization.load_pem_private_key(private_pem, password=None, backend=default_backend())
+
+        ciphertext = bytes.fromhex(input('请输入要解密的数据：'))
+
+        data = private_key.decrypt(ciphertext, padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                                                            algorithm=hashes.SHA256(), label=None))
+        print('解密后的数据为：', data.decode('utf-8'))
+
+def main_menu():
+    print("----------------")
+    print("1. 生成RSA密钥对")
+    print("2. 导入他人公钥")
+    print("3. 加密数据")
+    print("4. 解密数据")
+    print("5. 退出")
+    print("----------------")
+
+while True:
+    main_menu()
+    choice = input('请输入选项：')
+
+    if choice == '1':
+        generate_key_pair()
+        time.sleep(3)
+    elif choice == '2':
+        import_public_key()
+    elif choice == '3':
+        encrypt_data()
+        input("按下回车继续...")
+    elif choice == '4':
+        decrypt_data()
+        input("按下回车继续...")
+    elif choice == '5':
+        print('程序已退出。')
+        break
+    else:
+        print('选项不正确，请重新选择。')
+        input("按下回车继续...")
