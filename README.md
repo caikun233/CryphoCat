@@ -15,7 +15,7 @@ Currently only Simplified Chinese and English are supported.
 **中文README请参照**[README.zhcn.md](https://github.com/caikun233/CryphoCat/blob/main/README.zhcn.md)
 
 * Support asymmetric encryption of arbitrary length text, currently using RSA2048 (I want to make it optional, but the development energy is not here).
-* The key directory generation rules in the "two-person chat" scenario have been built in.
+* The key directory generation rules in the "two-person chat" scenario have been built in. You can Pull Request to add more.
 * All offline processing, and open source, do not upload any data, decoupled from the chat software.
 * As long as your chat software can guarantee that the information sent and received is the same, then the content of your communication will never be revealed.
 * **Not Support Audio/Video At All, Unless there is a way to convert audio/video to text**.
