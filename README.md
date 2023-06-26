@@ -12,7 +12,7 @@ Currently only Simplified Chinese and English are supported.
 ![](https://img.shields.io/badge/python-v3.10-blue)
 ![GitHub](https://img.shields.io/github/license/caikun233/CryphoCat)
 
-**中文README请参照**[README.zhcn.md](https://github.com/caikun233/CryphoCat/README.zhcn.md)
+**中文README请参照**[README.zhcn.md](https://github.com/caikun233/CryphoCat/blob/main/README.zhcn.md)
 
 * Support asymmetric encryption of arbitrary length text, currently using RSA2048 (I want to make it optional, but the development energy is not here).
 * The key directory generation rules in the "two-person chat" scenario have been built in.
