@@ -39,11 +39,11 @@ Currently only Simplified Chinese and English are supported.
 
 ### Windows GUI 🔨
 
-	1. **The GUI version has not been developed yet, and no releases are currently available.**
-	1. ~~Download lastest .exe file from [releases](https://github.com/caikun233/CryphoCat/releases) and **no x86 support, x64 only**.~~
-	1. ~~Double click exe file, it looks ugly, right? I am not good at any art, but I will try my best to make it more beautiful.~~
-	1. ~~The first text entry box is your friend's public key's path you want to input. The 2nd text entry box is where you input words to encrypt or decrypt.~~
-	1. ~~Also, The program only support zh-CN till y2023/m07/d01. I will upload EN version soon, so no more explanation here.~~
+1. **The GUI version has not been developed yet, and no releases are currently available.**
+2. ~~Download lastest .exe file from [releases](https://github.com/caikun233/CryphoCat/releases) and **no x86 support, x64 only**.~~
+3. ~~Double click exe file, it looks ugly, right? I am not good at any art, but I will try my best to make it more beautiful.~~
+4. ~~The first text entry box is your friend's public key's path you want to input. The 2nd text entry box is where you input words to encrypt or decrypt.~~
+5. ~~Also, The program only support zh-CN till y2023/m07/d01. I will upload EN version soon, so no more explanation here.~~
 
 ## Development Plan
 
