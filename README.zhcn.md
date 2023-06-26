@@ -12,7 +12,7 @@
 ![](https://img.shields.io/badge/python-v3.10-blue)
 ![GitHub](https://img.shields.io/github/license/caikun233/CryphoCat)
 
-**English Readme please go to**[README.md](https://github.com/caikun233/CryphoCat/README.md)
+**English Readme please go to **[README.md](https://github.com/caikun233/CryphoCat/blob/main/README.md)
 
 * 支持任意长度文本的非对称加密，目前正在使用RSA2048 （我想使其成为可选项，但目前开发精力不在这，先这样放着吧）。
 * 已经内建了“两人聊天”场景下的密钥目录生成规则，你可以发起Pull Request来添加更多功能。
