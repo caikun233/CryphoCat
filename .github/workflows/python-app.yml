@@ -27,13 +27,21 @@ jobs:
         python -m pip install --upgrade pip
         pip install pyinstaller
         if (Test-Path source\GUIrequire.txt) { pip install -r source\GUIrequire.txt }
-    - name: Build executable
+    - name: Build Windows exe EN
       run: |
         pyinstaller --onefile GUI_EN.py
       working-directory: source
-    - name: Upload executable
+    - name: Upload EN executable
       uses: actions/upload-artifact@v2
       with:
-        name: exe-output
+        name: GUI_EN
         path: source\dist\
-
+    - name: Build Windows exe ZHCN
+      run: |
+        pyinstaller --onefile GUI_ZhCN.py
+      working-directory: source
+    - name: Upload ZHCN executable
+      uses: actions/upload-artifact@v2
+      with:
+        name: GUI_ZhCN
+        path: source\dist\
