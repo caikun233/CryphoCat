@@ -1,9 +1,11 @@
 # CryphoCat
-***THE WHOLE PROJECT IS UNDER ALPHA DEVELOPING***
+~~***THE WHOLE PROJECT IS UNDER ALPHA DEVELOPING***~~
 
-***THE WHOLE PROJECT IS UNDER ALPHA DEVELOPING***
+~~***THE WHOLE PROJECT IS UNDER ALPHA DEVELOPING***~~
 
-***THE WHOLE PROJECT IS UNDER ALPHA DEVELOPING***
+~~***THE WHOLE PROJECT IS UNDER ALPHA DEVELOPING***~~
+
+***ALPHA DEVELOPMENT IS ENDING***
 
 Encrypt your chatting with me, meow~
 
@@ -40,16 +42,17 @@ Currently only Simplified Chinese and English are supported.
 ### Windows GUI 🔨
 
 1. **The GUI version has not been developed yet, and no releases are currently available.**
-2. ~~Download lastest .exe file from [releases](https://github.com/caikun233/CryphoCat/releases) and **no x86 support, x64 only**.~~
-3. ~~Double click exe file, it looks ugly, right? I am not good at any art, but I will try my best to make it more beautiful.~~
-4. ~~The first text entry box is your friend's public key's path you want to input. The 2nd text entry box is where you input words to encrypt or decrypt.~~
-5. ~~Also, The program only support zh-CN till y2023/m07/d01. I will upload EN version soon, so no more explanation here.~~
+~~2. Download lastest .exe file from [releases](https://github.com/caikun233/CryphoCat/releases) and **no x86 support, x64 only**.~~
+2. No more EXE file in releases! Download from Actions! Thanks GitHub!
+4. Double click exe file, it looks ugly, right? I am not good at any art, but I will try my best to make it more beautiful.
+5. The first text entry box is your friend's public key's path you want to input. The 2nd text entry box is where you input words to encrypt or decrypt.
+6. ~~Also, The program only support zh-CN till y2023/m07/d01.~~ I uploaded EN version.
 
 ## Development Plan
 
-- [ ] Add English support for releases and source code.
-- [ ] Finish GUI version development.
+- [x] Add English support for releases and source code.
+- [x] Finish GUI version development.
 - [ ] Make RSA key length optional.
 - [ ] Make GUI more beautiful.
 - [ ] Try to add images base64 encode.
-- [ ] Let the encrypted text be copied automatically.
+- [x] Let the encrypted text be copied automatically.
