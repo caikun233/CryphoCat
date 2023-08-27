@@ -34,5 +34,5 @@ jobs:
         flake8 source --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Test with pytest
       run: |
-        pytest source\GUI_EN.py
+        pytest -k source\GUI_EN.py
       working-directory: source
