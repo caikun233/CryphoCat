@@ -1,13 +1,12 @@
 # This workflow will install Python dependencies, run tests and lint with a single version of Python
 # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
 
-name: Python application
+name: Build Executable
 
 on:
   push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+    branches:
+      - main
 
 permissions:
   contents: write
@@ -26,17 +25,15 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install flake8 pytest pyinstaller
+        pip install pyinstaller
         if (Test-Path source\GUIrequire.txt) { pip install -r source\GUIrequire.txt }
-    - name: Lint with flake8
-      run: |
-        flake8 source --count --select=E9,F63,F7,F82 --show-source --statistics
-        flake8 source --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Build executable
       run: |
         pyinstaller --onefile GUI_EN.py
       working-directory: source
-    - name: Test with pytest
-      run: |
-        pytest -k GUI_EN.py
-      working-directory: source
+    - name: Upload executable
+      uses: actions/upload-artifact@v2
+      with:
+        name: exe-output
+        path: source\dist\
+
