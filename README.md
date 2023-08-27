@@ -41,7 +41,7 @@ Currently only Simplified Chinese and English are supported.
 
 ### Windows GUI 🔨
 
-1. **The GUI version has not been developed yet, and no releases are currently available.**
+1. **The GUI version developed, you can now enjoy releases.**
 ~~2. Download lastest .exe file from [releases](https://github.com/caikun233/CryphoCat/releases) and **no x86 support, x64 only**.~~
 2. No more EXE file in releases! Download from Actions! Thanks GitHub!
 4. Double click exe file, it looks ugly, right? I am not good at any art, but I will try my best to make it more beautiful.
