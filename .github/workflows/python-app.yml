@@ -29,7 +29,7 @@ jobs:
         if (Test-Path source\GUIrequire.txt) { pip install -r source\GUIrequire.txt }
     - name: Build Windows exe EN
       run: |
-        pyinstaller --onefile GUI_EN.py
+        pyinstaller --onefile -w GUI_EN.py
       working-directory: source
     - name: Upload EN executable
       uses: actions/upload-artifact@v2
@@ -38,7 +38,7 @@ jobs:
         path: source\dist\GUI_EN.exe
     - name: Build Windows exe ZHCN
       run: |
-        pyinstaller --onefile GUI_ZhCN.py
+        pyinstaller --onefile -w GUI_ZhCN.py
       working-directory: source
     - name: Upload ZHCN executable
       uses: actions/upload-artifact@v2
