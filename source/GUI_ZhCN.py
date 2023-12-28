@@ -185,8 +185,8 @@ output_text = scrolledtext.ScrolledText(root)
 output_text.place(x=80, y=380, width=640, height=190)
 
 # 隐藏控制台黑框
-root.wm_attributes('-topmost', 1)
-root.after(1, lambda: root.focus_force())
+#root.wm_attributes('-topmost', 1)
+#root.after(1, lambda: root.focus_force())
 
 # 启动主循环
 root.mainloop()
