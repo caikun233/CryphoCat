@@ -55,3 +55,4 @@ Currently only Simplified Chinese and English are supported.
 - [ ] Make GUI more beautiful.
 - [ ] Try to add images base64 encode.
 - [x] Let the encrypted text be copied automatically.
+- [ ] According to a Twitterer, we can add a function to calculate some hash of images to avoid the platform adding tracking watermarks to the image.
