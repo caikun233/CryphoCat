@@ -37,11 +37,11 @@ Currently only Simplified Chinese and English are supported.
 
  3. The program will automatically create a folder named "RSAkeys" in the same level directory, and create a folder of "my" and "friend" in it to distinguish the key between you and the chat partner.
 
- 4. The program only support zh-CN till y2023/m07/d01. I will upload EN version soon, so no more explanation here.
+ 4. ~~The program only support zh-CN till y2023/m07/d01. I will upload EN version soon, so no more explanation here.~~ I uploaded EN version.
 
-### Windows GUI 🔨
+###  Windows GUI 🔨
 
-1. **The GUI version developed, you can now enjoy releases.** 
+1. **The GUI beta version completed.** 
 2. No more EXE file in releases! Download from Actions! Thanks GitHub!**No x86 support, x64 only**.
 3. Double click exe file, it looks ugly, right? I am not good at any art, but I will try my best to make it more beautiful.
 4. The first text entry box is your friend's public key's path you want to input. The 2nd text entry box is where you input words to encrypt or decrypt.
@@ -51,8 +51,8 @@ Currently only Simplified Chinese and English are supported.
 
 - [x] Add English support for releases and source code.
 - [x] Finish GUI version development.
-- [ ] Make RSA key length optional.
+- [x] Make RSA key length optional.(only CLI completed)
 - [ ] Make GUI more beautiful.
 - [ ] Try to add images base64 encode.
 - [x] Let the encrypted text be copied automatically.
-- [ ] According to a Twitterer, we can add a function to calculate some hash of images to avoid the platform adding tracking watermarks to the image.
+- [x] According to a Twitterer, we can add a function to calculate some hash of images to avoid the platform adding tracking watermarks to the image, also we can check them.(Now supports any file)
