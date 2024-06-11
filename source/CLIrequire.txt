@@ -1,2 +1,4 @@
 cryptography
 pyperclip
+colorama
+hashlib
