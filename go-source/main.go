@@ -19,16 +19,16 @@ import (
 // ---- i18n strings -----------------------------------------------------------
 
 type lang struct {
-	keyLenPrompt      string
-	keyLenBad         string
-	keyLenNotNum      string
-	passphraseSet     string
-	passphraseConfirm string
-	passphraseMismatch string
-	passphraseWarn    string
-	keyGenOK          string
-	keyPriv           string
-	keyPub            string
+	keyLenPrompt   string
+	keyLenBad      string
+	keyLenNotNum   string
+	promptPWSet    string
+	promptPWConfirm string
+	pwMismatch     string
+	pwWarn         string
+	keyGenOK       string
+	keyPriv        string
+	keyPub         string
 
 	importPrompt string
 	importOK     string
@@ -45,13 +45,13 @@ type lang struct {
 	encFail      string
 	encOK        string
 
-	decNoKey     string
-	decPassPrompt string
-	decLoadFail  string
-	decPrompt    string
-	decBadHex    string
-	decFail      string
-	decOK        string
+	decNoKey       string
+	promptPWDec    string
+	decLoadFail    string
+	decPrompt      string
+	decBadHex      string
+	decFail        string
+	decOK          string
 
 	hashPrompt   string
 	hashNoFile   string
@@ -83,13 +83,13 @@ type lang struct {
 }
 
 var en = lang{
-	keyLenPrompt:       "Key length (1024/2048/4096, default 4096): ",
-	keyLenBad:          "Choose one of: 1024, 2048, 4096",
+	keyLenPrompt:       "Key length (2048/4096, default 4096): ",
+	keyLenBad:          "Choose one of: 2048, 4096",
 	keyLenNotNum:       "Please enter a number.",
-	passphraseSet:      "Set passphrase (blank = no encryption, NOT recommended): ",
-	passphraseConfirm:  "Confirm passphrase: ",
-	passphraseMismatch: "Passphrases do not match.",
-	passphraseWarn:     "[WARNING] Private key will be stored without a passphrase.",
+	promptPWSet:      "Set passphrase (blank = no encryption, NOT recommended): ",
+	promptPWConfirm:  "Confirm passphrase: ",
+	pwMismatch: "Passphrases do not match.",
+	pwWarn:     "[WARNING] Private key will be stored without a passphrase.",
 	keyGenOK:           "RSA-%d key pair generated.",
 	keyPriv:            "  Private: %s",
 	keyPub:             "  Public : %s",
@@ -110,7 +110,7 @@ var en = lang{
 	encOK:        "Encrypted (copied to clipboard): %s",
 
 	decNoKey:      "Private key not found. Generate a key pair first.",
-	decPassPrompt: "Private key passphrase (blank if none): ",
+	promptPWDec: "Private key passphrase (blank if none): ",
 	decLoadFail:   "Cannot load private key: %v",
 	decPrompt:     "Ciphertext (hex): ",
 	decBadHex:     "Invalid hex ciphertext.",
@@ -147,13 +147,13 @@ var en = lang{
 }
 
 var zhcn = lang{
-	keyLenPrompt:       "密钥长度（1024/2048/4096，默认 4096）：",
-	keyLenBad:          "请从 1024、2048、4096 中选择一个。",
+	keyLenPrompt:       "密钥长度（2048/4096，默认 4096）：",
+	keyLenBad:          "请从 2048、4096 中选择一个。",
 	keyLenNotNum:       "请输入数字。",
-	passphraseSet:      "设置私钥口令（留空 = 不加密存储，不推荐）：",
-	passphraseConfirm:  "确认口令：",
-	passphraseMismatch: "两次输入的口令不一致。",
-	passphraseWarn:     "[警告] 私钥将以明文形式存储，安全性较低。",
+	promptPWSet:      "设置私钥口令（留空 = 不加密存储，不推荐）：",
+	promptPWConfirm:  "确认口令：",
+	pwMismatch: "两次输入的口令不一致。",
+	pwWarn:     "[警告] 私钥将以明文形式存储，安全性较低。",
 	keyGenOK:           "RSA-%d 密钥对已生成。",
 	keyPriv:            "  私钥：%s",
 	keyPub:             "  公钥：%s",
@@ -174,7 +174,7 @@ var zhcn = lang{
 	encOK:        "加密结果（已复制到剪贴板）：%s",
 
 	decNoKey:      "未找到私钥，请先生成密钥对。",
-	decPassPrompt: "私钥口令（无口令则留空）：",
+	promptPWDec: "私钥口令（无口令则留空）：",
 	decLoadFail:   "无法加载私钥：%v",
 	decPrompt:     "请输入十六进制密文：",
 	decBadHex:     "十六进制密文无效。",
@@ -257,7 +257,7 @@ func generateKeyPair(l *lang, ks keystore.Paths) {
 	if raw != "" {
 		n := 0
 		_, err := fmt.Sscanf(raw, "%d", &n)
-		if err != nil || (n != 1024 && n != 2048 && n != 4096) {
+		if err != nil || (n != 2048 && n != 4096) {
 			if err != nil {
 				fmt.Println(l.keyLenNotNum)
 			} else {
@@ -268,17 +268,17 @@ func generateKeyPair(l *lang, ks keystore.Paths) {
 		keySize = n
 	}
 
-	pw := readPassword(l.passphraseSet)
+	pw := readPassword(l.promptPWSet)
 	var passphrase []byte
 	if pw != "" {
-		pw2 := readPassword(l.passphraseConfirm)
+		pw2 := readPassword(l.promptPWConfirm)
 		if pw != pw2 {
-			fmt.Println(l.passphraseMismatch)
+			fmt.Println(l.pwMismatch)
 			return
 		}
 		passphrase = []byte(pw)
 	} else {
-		fmt.Println(l.passphraseWarn)
+		fmt.Println(l.pwWarn)
 	}
 
 	if err := cc.GenerateKeyPair(keySize, passphrase, ks.MyPriv, ks.MyPub); err != nil {
@@ -358,7 +358,7 @@ func decryptData(l *lang, ks keystore.Paths) {
 		fmt.Println(l.decNoKey)
 		return
 	}
-	pw := readPassword(l.decPassPrompt)
+	pw := readPassword(l.promptPWDec)
 	var passphrase []byte
 	if pw != "" {
 		passphrase = []byte(pw)
