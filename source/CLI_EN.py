@@ -1,6 +1,7 @@
 import os
 import time
 import hashlib
+import getpass
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.backends import default_backend
@@ -8,169 +9,213 @@ import pyperclip
 import colorama
 from colorama import Fore, Style
 
-# 初始化 colorama
 colorama.init()
 
-current_dir = os.path.dirname(os.path.abspath(__file__))
+_BASE   = 'RSAkeys'
+_MY_DIR = os.path.join(_BASE, 'my')
+_FR_DIR = os.path.join(_BASE, 'friend')
+_MY_PRI = os.path.join(_MY_DIR, 'private.pem')
+_MY_PUB = os.path.join(_MY_DIR, 'public.pem')
+_FR_PUB = os.path.join(_FR_DIR, 'public.pem')
 
-if not os.path.exists('RSAkeys'):
-    print('no path found like RSAKeys, creating\n')
-    os.makedirs('RSAkeys')
+for _d in (_MY_DIR, _FR_DIR):
+    os.makedirs(_d, exist_ok=True)
 
-if not os.path.exists('RSAkeys/my'):
-    os.makedirs('RSAkeys/my')
-
-if not os.path.exists('RSAkeys/friend'):
-    os.makedirs('RSAkeys/friend')
 
 def generate_key_pair():
-    input_key_size = input('input key length(1024/2048/4096 default):')
-    if not input_key_size:
-        input_key_size = 4096
+    raw = input('Key length (1024/2048/4096, default 4096): ').strip()
+    if not raw:
+        key_size = 4096
     else:
         try:
-            input_key_size = int(input_key_size)
-            if input_key_size not in [1024, 2048, 4096]:
-                print('you can only choose one in 1024/2048/4096')
+            key_size = int(raw)
+            if key_size not in (1024, 2048, 4096):
+                print('Choose one of: 1024, 2048, 4096')
                 return
         except ValueError:
-            print('are you inputing numbers?')
+            print('Please enter a number.')
             return
+
+    pw = getpass.getpass('Set passphrase (blank = no encryption, NOT recommended): ')
+    if pw:
+        pw2 = getpass.getpass('Confirm passphrase: ')
+        if pw != pw2:
+            print('Passphrases do not match.')
+            return
+        enc = serialization.BestAvailableEncryption(pw.encode('utf-8'))
+    else:
+        enc = serialization.NoEncryption()
+        print('[WARNING] Private key will be stored without a passphrase.')
+
     private_key = rsa.generate_private_key(
         public_exponent=65537,
-        key_size=input_key_size,
+        key_size=key_size,
         backend=default_backend()
     )
-
-    private_pem = private_key.private_bytes(
+    pri_pem = private_key.private_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PrivateFormat.PKCS8,
-        encryption_algorithm=serialization.NoEncryption()
+        encryption_algorithm=enc
     )
-
-    public_pem = private_key.public_key().public_bytes(
+    pub_pem = private_key.public_key().public_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PublicFormat.SubjectPublicKeyInfo
     )
+    with open(_MY_PRI, 'wb') as f:
+        f.write(pri_pem)
+    with open(_MY_PUB, 'wb') as f:
+        f.write(pub_pem)
+    print(f'RSA-{key_size} key pair generated.')
+    print(f'  Private: {_MY_PRI}')
+    print(f'  Public : {_MY_PUB}')
 
-    with open('RSAkeys/my/private.txt', 'wb') as f:
-        f.write(private_pem)
-
-    with open('RSAkeys/my/public.txt', 'wb') as f:
-        f.write(public_pem)
-
-    print('RSA key pair generated, saved at RSAkeys/my/public.txt and RSAkeys/my/private.txt')
 
 def import_public_key():
-    path = input('input path of public_key you want import：')
+    path = input('Path to friend\'s public key: ').strip()
     if os.path.isfile(path):
-        with open(path, 'rb') as f:
-            public_pem = f.read()
-            with open('RSAkeys/friend/public.txt', 'wb') as fw:
-                fw.write(public_pem)
-        print('public key import success!')
+        try:
+            with open(path, 'rb') as f:
+                data = f.read()
+            serialization.load_pem_public_key(data, backend=default_backend())
+            with open(_FR_PUB, 'wb') as f:
+                f.write(data)
+            print('Public key imported successfully.')
+        except Exception as e:
+            print(f'Import failed: {e}')
     else:
-        print('not found, check the path')
+        print('File not found. Check the path.')
+
 
 def encrypt_data():
-    if os.path.exists('RSAkeys/friend/public.txt'):
-        with open('RSAkeys/friend/public.txt', 'rb') as f:
-            public_pem = f.read()
-            public_key = serialization.load_pem_public_key(public_pem, backend=default_backend())
-
-            data = input('input the text you want encrypt: ').encode('utf-8')
-            ciphertext = public_key.encrypt(data, padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),
-                                                               algorithm=hashes.SHA256(), label=None))
-            print('hex text after encrypting(auto copied): ', ciphertext.hex())
+    if os.path.isfile(_FR_PUB):
+        key_path = _FR_PUB
+    elif os.path.isfile(_MY_PUB):
+        ans = input('Friend\'s key not found. Use your own public key? (y/n): ').strip().lower()
+        if ans != 'y':
+            print('Cancelled. Import a friend\'s key or generate your key pair first.')
+            return
+        key_path = _MY_PUB
     else:
-        use_own_public_key = input('no imported public_key，Use the key generated? (T=True，F=False): ')
-        if use_own_public_key == 'T':
-            with open('RSAkeys/my/public.txt', 'rb') as f:
-                public_pem = f.read()
-                public_key = serialization.load_pem_public_key(public_pem, backend=default_backend())
+        print('No public key available. Generate a key pair first.')
+        return
 
-                data = input('input the text you want encrypt: ').encode('utf-8')
-                ciphertext = public_key.encrypt(data, padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),
-                                                                   algorithm=hashes.SHA256(), label=None))
-                print('hex text after encrypting(auto copied): ', ciphertext.hex())
-        else:
-            print('plz import others public_key or generate your key pair')
-    pyperclip.copy(ciphertext.hex())
+    try:
+        with open(key_path, 'rb') as f:
+            pub_key = serialization.load_pem_public_key(f.read(), backend=default_backend())
+    except Exception as e:
+        print(f'Cannot load public key: {e}')
+        return
+
+    data = input('Text to encrypt: ').encode('utf-8')
+    if not data:
+        print('Nothing to encrypt.')
+        return
+    try:
+        MAX = 190  # RSA-2048 + OAEP-SHA256
+        encrypted = b''.join(
+            pub_key.encrypt(
+                data[i:i + MAX],
+                padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                             algorithm=hashes.SHA256(), label=None)
+            )
+            for i in range(0, len(data), MAX)
+        )
+        hex_ct = encrypted.hex()
+        pyperclip.copy(hex_ct)
+        print('Encrypted (copied to clipboard):', hex_ct)
+    except Exception as e:
+        print(f'Encryption failed: {e}')
+
 
 def decrypt_data():
-    with open('RSAkeys/my/private.txt', 'rb') as f:
-        private_pem = f.read()
-        private_key = serialization.load_pem_private_key(private_pem, password=None, backend=default_backend())
+    if not os.path.isfile(_MY_PRI):
+        print('Private key not found. Generate a key pair first.')
+        return
+    try:
+        raw_pw = getpass.getpass('Private key passphrase (blank if none): ')
+        pw_bytes = raw_pw.encode('utf-8') if raw_pw else None
+        with open(_MY_PRI, 'rb') as f:
+            pri_key = serialization.load_pem_private_key(
+                f.read(), password=pw_bytes, backend=default_backend()
+            )
+    except Exception as e:
+        print(f'Cannot load private key: {e}')
+        return
 
-        ciphertext = bytes.fromhex(input('input the text you want decrypt: '))
+    hex_ct = input('Ciphertext (hex): ').strip()
+    try:
+        ciphertext = bytes.fromhex(hex_ct)
+    except ValueError:
+        print('Invalid hex ciphertext.')
+        return
+    try:
+        SEG = 256
+        plaintext = b''.join(
+            pri_key.decrypt(
+                ciphertext[i:i + SEG],
+                padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                             algorithm=hashes.SHA256(), label=None)
+            )
+            for i in range(0, len(ciphertext), SEG)
+        )
+        print('Decrypted:', plaintext.decode('utf-8'))
+    except Exception as e:
+        print(f'Decryption failed: {e}')
 
-        data = private_key.decrypt(ciphertext, padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),
-                                                            algorithm=hashes.SHA256(), label=None))
-        print('text after decrypting: ', data.decode('utf-8'))
 
 def calculate_hashes():
-    path = input('input file path: ')
+    path = input('File path: ').strip()
     if os.path.isfile(path):
         with open(path, 'rb') as f:
             data = f.read()
-            
-            md5_hash = hashlib.md5(data).hexdigest()
-            sha1_hash = hashlib.sha1(data).hexdigest()
-            sha256_hash = hashlib.sha256(data).hexdigest()
-
-            print('MD5:', md5_hash)
-            print('SHA1:', sha1_hash)
-            print('SHA256:', sha256_hash)
+        print('MD5   :', hashlib.md5(data).hexdigest())
+        print('SHA1  :', hashlib.sha1(data).hexdigest())
+        print('SHA256:', hashlib.sha256(data).hexdigest())
     else:
-        print('not found, check path')
+        print('File not found. Check the path.')
+
 
 def compare_hashes():
-    path = input('input file path:')
-    file_hash = input('input HEX hash(MD5/SHA1/SHA256): ')
-    if os.path.isfile(path):
-        if file_hash:
-            with open(path, 'rb') as f:
-                data = f.read()
-                
-                md5_hash = hashlib.md5(data).hexdigest()
-                sha1_hash = hashlib.sha1(data).hexdigest()
-                sha256_hash = hashlib.sha256(data).hexdigest()
-                
-                match_found = False
-                if file_hash == md5_hash:
-                    print(Fore.GREEN + 'MD5 MATCH FOUND:' + Style.RESET_ALL, path)
-                    print(Fore.GREEN + 'with value:' + Style.RESET_ALL, md5_hash)
-                    match_found = True
-                if file_hash == sha1_hash:
-                    print(Fore.GREEN + 'SHA1 MATCH FOUND:' + Style.RESET_ALL, path)
-                    print(Fore.GREEN + 'with value:' + Style.RESET_ALL, sha1_hash)
-                    match_found = True
-                if file_hash == sha256_hash:
-                    print(Fore.GREEN + 'SHA256 MATCH FOUND:' + Style.RESET_ALL, path)
-                    print(Fore.GREEN + 'with value:' + Style.RESET_ALL, sha256_hash)
-                    match_found = True
-                if not match_found:
-                    print(Fore.RED + 'HASH CHECK FAILED, FILE MAY BE TAMPERED' + Style.RESET_ALL)
-        else:
-            print('you really inputted hash?')
-    else:
-        print('file not found, check path')
+    path = input('File path: ').strip()
+    file_hash = input('Expected hash (MD5/SHA1/SHA256): ').strip()
+    if not os.path.isfile(path):
+        print('File not found. Check the path.')
+        return
+    if not file_hash:
+        print('No hash provided.')
+        return
+    with open(path, 'rb') as f:
+        data = f.read()
+    checks = {
+        'MD5':    hashlib.md5(data).hexdigest(),
+        'SHA1':   hashlib.sha1(data).hexdigest(),
+        'SHA256': hashlib.sha256(data).hexdigest(),
+    }
+    matched = False
+    for algo, digest in checks.items():
+        if file_hash.lower() == digest:
+            print(Fore.GREEN + f'{algo} MATCH: {path}' + Style.RESET_ALL)
+            print(Fore.GREEN + f'Value : {digest}' + Style.RESET_ALL)
+            matched = True
+    if not matched:
+        print(Fore.RED + 'HASH CHECK FAILED – file may have been tampered with.' + Style.RESET_ALL)
+
 
 def main_menu():
     print("----------------")
-    print("1. Generate RSA key pair.")
-    print("2. Import public key from others.")
-    print("3. Encrypt data.")
-    print("4. Decrypt data.")
-    print("5. Calculate file hash")
-    print("6. Check file hash")
-    print("7. Say Goodbye")
+    print("1. Generate RSA key pair")
+    print("2. Import friend\'s public key")
+    print("3. Encrypt text")
+    print("4. Decrypt text")
+    print("5. Calculate file hashes")
+    print("6. Verify file hash")
+    print("7. Exit")
     print("----------------")
+
 
 while True:
     main_menu()
-    choice = input('what is your choice：')
-
+    choice = input('Choice: ').strip()
     if choice == '1':
         generate_key_pair()
         time.sleep(1)
@@ -178,19 +223,19 @@ while True:
         import_public_key()
     elif choice == '3':
         encrypt_data()
-        input("press enter to continue...")
+        input('Press Enter to continue...')
     elif choice == '4':
         decrypt_data()
-        input("press enter to continue...")
+        input('Press Enter to continue...')
     elif choice == '5':
         calculate_hashes()
-        input("press enter to continue...")
+        input('Press Enter to continue...')
     elif choice == '6':
         compare_hashes()
-        input("press enter to continue...")
+        input('Press Enter to continue...')
     elif choice == '7':
-        print('Never gonna tell↓ a↑ liiiie↓ and hurt you.')
+        print('Goodbye.')
         break
     else:
-        print('? what did you just press')
-        input("press enter to continue...")
+        print('Invalid choice.')
+        input('Press Enter to continue...')
