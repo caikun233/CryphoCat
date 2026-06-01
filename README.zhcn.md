@@ -44,15 +44,6 @@ go test ./...                     # 运行测试
 
 非 Windows 平台（仅 CLI）：跳过 rsrc，直接 `go build`。
 
-## 发布流程
-
-推送版本标签即可触发自动构建和 GitHub Release：
-
-```
-git tag v1.0.0
-git push origin v1.0.0
-```
-
 ## 开发计划
 
 - [x] RSA、ECC、Curve25519、Kyber 多算法加解密

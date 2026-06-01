@@ -44,15 +44,6 @@ go test ./...                     # run tests
 
 Non-Windows builds (CLI only): skip `rsrc`, just run `go build`.
 
-## Release Process
-
-Push a version tag to trigger automatic build and GitHub Release:
-
-```shell
-git tag v1.0.0
-git push origin v1.0.0
-```
-
 ## Development Plan
 
 - [x] RSA-OAEP, ECC (ECDH+AES-GCM), Curve25519, Kyber ML-KEM encryption
