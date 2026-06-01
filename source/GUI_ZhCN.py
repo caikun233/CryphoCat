@@ -1,192 +1,309 @@
 import os
 import tkinter as tk
-from tkinter import messagebox, scrolledtext
+from tkinter import messagebox, scrolledtext, simpledialog
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.backends import default_backend
 import tkinter.filedialog as filedialog
 import pyperclip
 
-if not os.path.exists('RSAkeys'):
-    print('检测到没有RSAkeys文件夹，自动创建。\n')
-    os.makedirs('RSAkeys')
-if not os.path.exists('RSAkeys\\friend'):
-    os.makedirs('RSAkeys\\friend')
-if not os.path.exists('RSAkeys\\my'):
-    os.makedirs('RSAkeys\\my')
+# -- 密钥存储路径 ---------------------------------------------------------------
+_BASE   = 'RSAkeys'
+_MY_DIR = os.path.join(_BASE, 'my')
+_FR_DIR = os.path.join(_BASE, 'friend')
+_MY_PRI = os.path.join(_MY_DIR, 'private.pem')
+_MY_PUB = os.path.join(_MY_DIR, 'public.pem')
+_FR_PUB = os.path.join(_FR_DIR, 'public.pem')
 
-if not os.path.exists('RSAkeys\\my\\public.txt'):
-    open('RSAkeys\\my\\public.txt', 'w').close()
-if not os.path.exists('RSAkeys\\my\\private.txt'):
-    open('RSAkeys\\my\\private.txt', 'w').close()
+for _d in (_MY_DIR, _FR_DIR):
+    os.makedirs(_d, exist_ok=True)
+
+# -- 复古终端主题 ---------------------------------------------------------------
+_BG   = '#0d0d0d'
+_FG   = '#33cc33'
+_OFGC = '#22aa22'
+_BFBG = '#1c1c1c'
+_BFAC = '#003300'
+_FONT = ('Courier', 9)
+_BFNT = ('Courier', 9, 'bold')
+_SFNT = ('Courier', 8)
 
 
+# -- 工具函数 -------------------------------------------------------------------
 
+def _log(msg):
+    output_text.configure(state=tk.NORMAL)
+    output_text.insert(tk.END, msg + '\n')
+    output_text.see(tk.END)
+    output_text.configure(state=tk.DISABLED)
+
+
+def _status(msg):
+    status_var.set(msg)
+
+
+def _ask_new_passphrase():
+    """提示设置新口令（需二次确认）。返回 (pw_bytes|None, ok)。"""
+    pw = simpledialog.askstring(
+        "设置口令",
+        "设置私钥保护口令\n（留空 = 不加密存储，不推荐）：",
+        show='*', parent=root
+    )
+    if pw is None:
+        return None, False
+    if not pw:
+        return None, True
+    pw2 = simpledialog.askstring(
+        "确认口令", "再次输入口令：", show='*', parent=root
+    )
+    if pw2 is None or pw != pw2:
+        messagebox.showerror("错误", "两次输入的口令不一致。", parent=root)
+        return None, False
+    return pw.encode('utf-8'), True
+
+
+def _ask_passphrase():
+    """提示输入现有口令。返回 pw_bytes|None，或 False（取消）。"""
+    pw = simpledialog.askstring(
+        "输入口令", "私钥口令（留空表示无口令）：",
+        show='*', parent=root
+    )
+    if pw is None:
+        return False
+    return pw.encode('utf-8') if pw else None
+
+
+# -- 功能 -----------------------------------------------------------------------
 
 def generate_key_pair():
-    if not os.path.exists('RSAkeys'):
-        os.makedirs('RSAkeys')
-    if not os.path.exists('RSAkeys/my'):
-        os.makedirs('RSAkeys/my')
-
-    private_key = rsa.generate_private_key(
-        public_exponent=65537,
-        key_size=2048,
-        backend=default_backend()
-    )
-
-    private_pem = private_key.private_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PrivateFormat.PKCS8,
-        encryption_algorithm=serialization.NoEncryption()
-    )
-
-    public_pem = private_key.public_key().public_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PublicFormat.SubjectPublicKeyInfo
-    )
-
-    with open('RSAkeys/my/private.txt', 'wb') as f:
-        f.write(private_pem)
-    with open('RSAkeys/my/public.txt', 'wb') as f:
-        f.write(public_pem)
-
-    # 将生成成功信息写入文本框
-    output_text.insert(tk.END, "RSA密钥对生成成功！已保存到RSAkeys/my/public.txt和RSAkeys/my/private.txt\n\n")
-
-
+    passphrase, ok = _ask_new_passphrase()
+    if not ok:
+        return
+    enc = (serialization.BestAvailableEncryption(passphrase)
+           if passphrase else serialization.NoEncryption())
+    try:
+        private_key = rsa.generate_private_key(
+            public_exponent=65537, key_size=2048, backend=default_backend()
+        )
+        pri_pem = private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=enc
+        )
+        pub_pem = private_key.public_key().public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo
+        )
+        with open(_MY_PRI, 'wb') as f:
+            f.write(pri_pem)
+        with open(_MY_PUB, 'wb') as f:
+            f.write(pub_pem)
+        note = " [口令保护]" if passphrase else " [警告：无口令保护]"
+        _log(f"[OK] RSA-2048 密钥对已生成{note}。")
+        _log(f"     私钥：{_MY_PRI}")
+        _log(f"     公钥：{_MY_PUB}\n")
+        _status("密钥对已生成。")
+    except Exception as e:
+        messagebox.showerror("错误", f"密钥生成失败：{e}", parent=root)
 
 
 def import_public_key():
-    # 弹出文件选择窗口
-    file_path = filedialog.askopenfilename(title="选择公钥文件", filetypes=[("Text Files", "*.txt"), ("PEM Files", "*.pem")])
-    if file_path:
-        try:
-            # 读取选择的公钥文件
-            with open(file_path, 'rb') as f:
-                public_pem = f.read()
-                with open('RSAkeys/friend/public.txt', 'wb') as fw:
-                    fw.write(public_pem)
-            messagebox.showinfo("提示", "公钥导入成功！")
-            import_btn.config(text="公钥已导入", state=tk.DISABLED)
-            root.update()  # 更新窗口，立即生效
-        except Exception as e:
-            messagebox.showerror("错误", f"公钥导入失败：{str(e)}")
-
-
+    path = filedialog.askopenfilename(
+        title="选择对方公钥文件",
+        filetypes=[("密钥文件", "*.pem *.txt"), ("所有文件", "*.*")],
+        parent=root
+    )
+    if not path:
+        return
+    try:
+        with open(path, 'rb') as f:
+            data = f.read()
+        serialization.load_pem_public_key(data, backend=default_backend())
+        with open(_FR_PUB, 'wb') as f:
+            f.write(data)
+        _log("[OK] 对方公钥导入成功。\n")
+        _status("对方公钥已导入。")
+        import_btn.configure(text="[ 公钥已导入 ]")
+    except Exception as e:
+        messagebox.showerror("错误", f"导入失败：{e}", parent=root)
 
 
 def encrypt_data():
-    # 检查对方公钥文件是否存在
-    if not os.path.isfile('RSAkeys/friend/public.txt'):
-        response = messagebox.askquestion("提示", "没有发现对方公钥，是否用自己的公钥加密？")
-        if response == 'yes':
-            # 使用自己的公钥加密
-            with open('RSAkeys/my/public.txt', 'rb') as f:
-                public_pem = f.read()
-                public_key = serialization.load_pem_public_key(public_pem, backend=default_backend())
-        else:
-            return  # 取消本次加密请求
+    if os.path.isfile(_FR_PUB):
+        key_path = _FR_PUB
+    elif os.path.isfile(_MY_PUB):
+        if not messagebox.askyesno(
+            "未找到对方公钥",
+            "未找到对方公钥。\n是否使用自己的公钥加密？",
+            parent=root
+        ):
+            return
+        key_path = _MY_PUB
     else:
-        # 读取对方公钥
-        with open('RSAkeys/friend/public.txt', 'rb') as f:
-            public_pem = f.read()
-            public_key = serialization.load_pem_public_key(public_pem, backend=default_backend())
+        messagebox.showerror(
+            "错误", "未找到公钥，请先生成密钥对。", parent=root
+        )
+        return
+    try:
+        with open(key_path, 'rb') as f:
+            pub_key = serialization.load_pem_public_key(f.read(), backend=default_backend())
+    except Exception as e:
+        messagebox.showerror("错误", f"无法加载公钥：{e}", parent=root)
+        return
 
-    # 获取要加密的数据
-    data = text_entry.get("1.0", tk.END).encode('utf-8')
-
-    # 分段加密
-    max_len = 127  # 限制每个分段的最大长度
-    ciphertext_segments = []  # 定义一个空的列表用于存储加密后的分段
-    if len(data) > max_len:
-        segments = [data[i:i + max_len] for i in range(0, len(data), max_len)]
-        for segment in segments:
-            ciphertext_segment = public_key.encrypt(segment,
-                                                   padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),
-                                                                algorithm=hashes.SHA256(), label=None))
-            ciphertext_segments.append(ciphertext_segment)
-        ciphertext = b''.join(ciphertext_segments)
-    else:
-        ciphertext = public_key.encrypt(data,
-                                        padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),
-                                                     algorithm=hashes.SHA256(), label=None))
-        ciphertext_segments.append(ciphertext)  # 添加单个密文到列表中
-
-    # 将密文复制到剪贴板
-    pyperclip.copy(ciphertext.hex())
-
-    # 在输出文本框中显示密文
-    output_text.delete("1.0", tk.END)  # 清空输出文本框
-    output_text.insert(tk.END, f"加密后的数据为（已自动复制）：{ciphertext.hex()}\n\n")
-    output_text.see(tk.END)
+    data = text_entry.get("1.0", tk.END).strip().encode('utf-8')
+    if not data:
+        _status("输入为空。")
+        return
+    try:
+        # RSA-2048 + OAEP-SHA256：每块最大明文 190 字节
+        MAX = 190
+        encrypted = b''.join(
+            pub_key.encrypt(
+                data[i:i + MAX],
+                padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                             algorithm=hashes.SHA256(), label=None)
+            )
+            for i in range(0, len(data), MAX)
+        )
+        hex_ct = encrypted.hex()
+        pyperclip.copy(hex_ct)
+        output_text.configure(state=tk.NORMAL)
+        output_text.delete("1.0", tk.END)
+        output_text.insert(tk.END, hex_ct)
+        output_text.configure(state=tk.DISABLED)
+        _status("加密完成 - 已自动复制到剪贴板。")
+    except Exception as e:
+        messagebox.showerror("错误", f"加密失败：{e}", parent=root)
 
 
 def decrypt_data():
-    # 读取自己的私钥
-    with open('RSAkeys/my/private.txt', 'rb') as f:
-        private_pem = f.read()
-        private_key = serialization.load_pem_private_key(private_pem, password=None, backend=default_backend())
-
-    # 获取要解密的数据
-    ciphertext_hex = text_entry.get("1.0", tk.END).strip()  # 去除前后的空白字符
-
+    if not os.path.isfile(_MY_PRI):
+        messagebox.showerror(
+            "错误", "未找到私钥，请先生成密钥对。", parent=root
+        )
+        return
+    passphrase = _ask_passphrase()
+    if passphrase is False:
+        return
     try:
-        ciphertext = bytes.fromhex(ciphertext_hex)
-    except ValueError:
-        messagebox.showerror("错误", "无效的十六进制密文！")
+        with open(_MY_PRI, 'rb') as f:
+            content = f.read()
+        pri_key = serialization.load_pem_private_key(
+            content, password=passphrase, backend=default_backend()
+        )
+    except Exception as e:
+        messagebox.showerror("错误", f"无法加载私钥：{e}", parent=root)
         return
 
-    # 分段解密
-    if len(ciphertext) > 256:
-        segments = [ciphertext[i: i + 256] for i in range(0, len(ciphertext), 256)]
-        data_segments = []
-        for segment in segments:
-            data_segments.append(private_key.decrypt(segment,
-                                                     padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),
-                                                                  algorithm=hashes.SHA256(), label=None)))
-        data = b"".join(data_segments)
-    else:
-        data = private_key.decrypt(ciphertext,
-                                   padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),
-                                                algorithm=hashes.SHA256(), label=None))
+    hex_ct = text_entry.get("1.0", tk.END).strip()
+    try:
+        ciphertext = bytes.fromhex(hex_ct)
+    except ValueError:
+        messagebox.showerror("错误", "输入的十六进制密文无效。", parent=root)
+        return
+    try:
+        # 每个 RSA-2048 密文块为 256 字节
+        SEG = 256
+        plaintext = b''.join(
+            pri_key.decrypt(
+                ciphertext[i:i + SEG],
+                padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                             algorithm=hashes.SHA256(), label=None)
+            )
+            for i in range(0, len(ciphertext), SEG)
+        )
+        output_text.configure(state=tk.NORMAL)
+        output_text.delete("1.0", tk.END)
+        output_text.insert(tk.END, plaintext.decode('utf-8'))
+        output_text.configure(state=tk.DISABLED)
+        _status("解密完成。")
+    except Exception as e:
+        messagebox.showerror("错误", f"解密失败：{e}", parent=root)
 
-    output_text.insert(tk.END, f"解密后的数据为：{data.decode('utf-8')}\n\n")
-    output_text.see(tk.END)
+
+def clear_all():
+    text_entry.delete("1.0", tk.END)
+    output_text.configure(state=tk.NORMAL)
+    output_text.delete("1.0", tk.END)
+    output_text.configure(state=tk.DISABLED)
+    _status("已清空。")
 
 
-# 创建GUI窗口
+def copy_output():
+    content = output_text.get("1.0", tk.END).strip()
+    if content:
+        pyperclip.copy(content)
+        _status("输出已复制到剪贴板。")
+
+
+# -- 界面 -----------------------------------------------------------------------
+
 root = tk.Tk()
-root.geometry("800x600")  # 设置窗口大小
-root.title("ChyphoCat")
+root.title("CryphoCat")
+root.geometry("600x420")
+root.resizable(False, False)
+root.configure(bg=_BG)
 
-# 生成RSA密钥对按钮
-generate_btn = tk.Button(root, text="生成RSA密钥对", command=generate_key_pair)
-generate_btn.place(x=100, y=30, width=200, height=50)  # 按钮位于 (100, 50) 的位置
+status_var = tk.StringVar(value="就绪。")
 
-# 导入公钥按钮
-import_btn = tk.Button(root, text="导入公钥", command=import_public_key)
-import_btn.place(x=500, y=30, width=200, height=50)  # 按钮位于 (100, 50) 的位置
 
-# 文本输入框
-text_entry = scrolledtext.ScrolledText(root)
-text_entry.place(x=80, y=100, width=640, height=190)  # 输入框位于 (100, 150) 的位置
+def _btn(parent, text, cmd, width=None):
+    kw = dict(bg=_BFBG, fg=_FG, activebackground=_BFAC, activeforeground=_FG,
+              font=_BFNT, relief=tk.RIDGE, bd=1, cursor='hand2')
+    if width is not None:
+        kw['width'] = width
+    return tk.Button(parent, text=text, command=cmd, **kw)
 
-# 加密按钮
-encrypt_btn = tk.Button(root, text="加密", command=encrypt_data)
-encrypt_btn.place(x=100, y=320, width=200, height=50)
 
-# 解密按钮
-decrypt_btn = tk.Button(root, text="解密", command=decrypt_data)
-decrypt_btn.place(x=500, y=320, width=200, height=50)
+def _lbl(parent, text):
+    return tk.Label(parent, text=text, bg=_BG, fg=_FG, font=_SFNT)
 
-# 输出文本框
-output_text = scrolledtext.ScrolledText(root)
-output_text.place(x=80, y=380, width=640, height=190)
 
-# 隐藏控制台黑框
-#root.wm_attributes('-topmost', 1)
-#root.after(1, lambda: root.focus_force())
+# 顶部：密钥管理
+top = tk.Frame(root, bg=_BG)
+top.pack(fill=tk.X, padx=8, pady=(6, 2))
+generate_btn = _btn(top, "[ 生成密钥对 ]", generate_key_pair, width=14)
+generate_btn.pack(side=tk.LEFT, padx=(0, 4))
+import_btn = _btn(top, "[ 导入对方公钥 ]", import_public_key, width=16)
+import_btn.pack(side=tk.LEFT)
+_lbl(top, "  RSA-2048 / OAEP-SHA256").pack(side=tk.RIGHT)
 
-# 启动主循环
+# 输入区域
+in_f = tk.Frame(root, bg=_BG)
+in_f.pack(fill=tk.BOTH, expand=True, padx=8, pady=2)
+_lbl(in_f, "输入：").pack(anchor=tk.W)
+text_entry = scrolledtext.ScrolledText(
+    in_f, height=8, font=_FONT, bg='#111111', fg=_FG,
+    insertbackground=_FG, relief=tk.FLAT, bd=1,
+    selectbackground='#004400', selectforeground=_FG
+)
+text_entry.pack(fill=tk.BOTH, expand=True)
+
+# 操作按钮行
+act = tk.Frame(root, bg=_BG)
+act.pack(fill=tk.X, padx=8, pady=4)
+_btn(act, "[ 加密 ]", encrypt_data, width=10).pack(side=tk.LEFT, padx=(0, 4))
+_btn(act, "[ 清空 ]", clear_all, width=8).pack(side=tk.LEFT, padx=(0, 4))
+_btn(act, "[ 解密 ]", decrypt_data, width=10).pack(side=tk.LEFT, padx=(0, 4))
+_btn(act, "[ 复制输出 ]", copy_output, width=12).pack(side=tk.RIGHT)
+
+# 输出区域
+out_f = tk.Frame(root, bg=_BG)
+out_f.pack(fill=tk.BOTH, expand=True, padx=8, pady=(0, 2))
+_lbl(out_f, "输出：").pack(anchor=tk.W)
+output_text = scrolledtext.ScrolledText(
+    out_f, height=6, font=_FONT, bg='#0a0a0a', fg=_OFGC,
+    insertbackground=_FG, relief=tk.FLAT, bd=1,
+    selectbackground='#004400', selectforeground=_FG,
+    state=tk.DISABLED
+)
+output_text.pack(fill=tk.BOTH, expand=True)
+
+# 状态栏
+tk.Label(
+    root, textvariable=status_var, bg='#0a0a0a', fg='#226622',
+    font=_SFNT, anchor=tk.W
+).pack(fill=tk.X, padx=8, pady=(0, 4))
+
 root.mainloop()

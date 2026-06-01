@@ -1,6 +1,7 @@
 import os
 import time
 import hashlib
+import getpass
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.backends import default_backend
@@ -8,169 +9,213 @@ import pyperclip
 import colorama
 from colorama import Fore, Style
 
-# 初始化 colorama
 colorama.init()
 
-current_dir = os.path.dirname(os.path.abspath(__file__))
+_BASE   = 'RSAkeys'
+_MY_DIR = os.path.join(_BASE, 'my')
+_FR_DIR = os.path.join(_BASE, 'friend')
+_MY_PRI = os.path.join(_MY_DIR, 'private.pem')
+_MY_PUB = os.path.join(_MY_DIR, 'public.pem')
+_FR_PUB = os.path.join(_FR_DIR, 'public.pem')
 
-if not os.path.exists('RSAkeys'):
-    print('检测到没有RSAkeys文件夹，自动创建。\n')
-    os.makedirs('RSAkeys')
+for _d in (_MY_DIR, _FR_DIR):
+    os.makedirs(_d, exist_ok=True)
 
-if not os.path.exists('RSAkeys/my'):
-    os.makedirs('RSAkeys/my')
-
-if not os.path.exists('RSAkeys/friend'):
-    os.makedirs('RSAkeys/friend')
 
 def generate_key_pair():
-    input_key_size = input('输入密钥长度(1024/2048/默认4096):')
-    if not input_key_size:
-        input_key_size = 4096
+    raw = input('密钥长度（1024/2048/4096，默认 4096）：').strip()
+    if not raw:
+        key_size = 4096
     else:
         try:
-            input_key_size = int(input_key_size)
-            if input_key_size not in [1024, 2048, 4096]:
-                print('三个里面选一个，别的不认')
+            key_size = int(raw)
+            if key_size not in (1024, 2048, 4096):
+                print('请从 1024、2048、4096 中选择一个。')
                 return
         except ValueError:
-            print('？你输的是数字？')
+            print('请输入数字。')
             return
+
+    pw = getpass.getpass('设置私钥口令（留空 = 不加密存储，不推荐）：')
+    if pw:
+        pw2 = getpass.getpass('确认口令：')
+        if pw != pw2:
+            print('两次输入的口令不一致。')
+            return
+        enc = serialization.BestAvailableEncryption(pw.encode('utf-8'))
+    else:
+        enc = serialization.NoEncryption()
+        print('[警告] 私钥将以明文形式存储，安全性较低。')
+
     private_key = rsa.generate_private_key(
         public_exponent=65537,
-        key_size=input_key_size,
+        key_size=key_size,
         backend=default_backend()
     )
-
-    private_pem = private_key.private_bytes(
+    pri_pem = private_key.private_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PrivateFormat.PKCS8,
-        encryption_algorithm=serialization.NoEncryption()
+        encryption_algorithm=enc
     )
-
-    public_pem = private_key.public_key().public_bytes(
+    pub_pem = private_key.public_key().public_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PublicFormat.SubjectPublicKeyInfo
     )
+    with open(_MY_PRI, 'wb') as f:
+        f.write(pri_pem)
+    with open(_MY_PUB, 'wb') as f:
+        f.write(pub_pem)
+    print(f'RSA-{key_size} 密钥对已生成。')
+    print(f'  私钥：{_MY_PRI}')
+    print(f'  公钥：{_MY_PUB}')
 
-    with open('RSAkeys/my/private.txt', 'wb') as f:
-        f.write(private_pem)
-
-    with open('RSAkeys/my/public.txt', 'wb') as f:
-        f.write(public_pem)
-
-    print('RSA密钥对生成成功，并已保存到RSAkeys/my/public.txt和RSAkeys/my/private.txt')
 
 def import_public_key():
-    path = input('请输入要导入的公钥文件的路径：')
+    path = input('请输入对方公钥文件路径：').strip()
     if os.path.isfile(path):
-        with open(path, 'rb') as f:
-            public_pem = f.read()
-            with open('RSAkeys/friend/public.txt', 'wb') as fw:
-                fw.write(public_pem)
-        print('公钥导入成功！')
+        try:
+            with open(path, 'rb') as f:
+                data = f.read()
+            serialization.load_pem_public_key(data, backend=default_backend())
+            with open(_FR_PUB, 'wb') as f:
+                f.write(data)
+            print('公钥导入成功。')
+        except Exception as e:
+            print(f'导入失败：{e}')
     else:
-        print('文件不存在，请检查路径是否正确。')
+        print('文件不存在，请检查路径。')
+
 
 def encrypt_data():
-    if os.path.exists('RSAkeys/friend/public.txt'):
-        with open('RSAkeys/friend/public.txt', 'rb') as f:
-            public_pem = f.read()
-            public_key = serialization.load_pem_public_key(public_pem, backend=default_backend())
-
-            data = input('请输入要加密的数据：').encode('utf-8')
-            ciphertext = public_key.encrypt(data, padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),
-                                                               algorithm=hashes.SHA256(), label=None))
-            print('加密后的数据为：', ciphertext.hex())
+    if os.path.isfile(_FR_PUB):
+        key_path = _FR_PUB
+    elif os.path.isfile(_MY_PUB):
+        ans = input('未找到对方公钥，是否使用自己的公钥加密？(y/n)：').strip().lower()
+        if ans != 'y':
+            print('已取消。请先导入对方公钥或生成密钥对。')
+            return
+        key_path = _MY_PUB
     else:
-        use_own_public_key = input('未导入他人公钥，是否使用自己的公钥进行加密？ (1=是，2=否): ')
-        if use_own_public_key == '1':
-            with open('RSAkeys/my/public.txt', 'rb') as f:
-                public_pem = f.read()
-                public_key = serialization.load_pem_public_key(public_pem, backend=default_backend())
+        print('未找到公钥，请先生成密钥对。')
+        return
 
-                data = input('请输入要加密的数据：').encode('utf-8')
-                ciphertext = public_key.encrypt(data, padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),
-                                                                   algorithm=hashes.SHA256(), label=None))
-                print('加密后的数据为（已经自动复制）：', ciphertext.hex())
-        else:
-            print('请先导入他人公钥或生成自己的密钥对。')
-    pyperclip.copy(ciphertext.hex())
+    try:
+        with open(key_path, 'rb') as f:
+            pub_key = serialization.load_pem_public_key(f.read(), backend=default_backend())
+    except Exception as e:
+        print(f'无法加载公钥：{e}')
+        return
+
+    data = input('请输入要加密的文本：').encode('utf-8')
+    if not data:
+        print('输入为空。')
+        return
+    try:
+        MAX = 190  # RSA-2048 + OAEP-SHA256
+        encrypted = b''.join(
+            pub_key.encrypt(
+                data[i:i + MAX],
+                padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                             algorithm=hashes.SHA256(), label=None)
+            )
+            for i in range(0, len(data), MAX)
+        )
+        hex_ct = encrypted.hex()
+        pyperclip.copy(hex_ct)
+        print('加密结果（已复制到剪贴板）：', hex_ct)
+    except Exception as e:
+        print(f'加密失败：{e}')
+
 
 def decrypt_data():
-    with open('RSAkeys/my/private.txt', 'rb') as f:
-        private_pem = f.read()
-        private_key = serialization.load_pem_private_key(private_pem, password=None, backend=default_backend())
+    if not os.path.isfile(_MY_PRI):
+        print('未找到私钥，请先生成密钥对。')
+        return
+    try:
+        raw_pw = getpass.getpass('私钥口令（无口令则留空）：')
+        pw_bytes = raw_pw.encode('utf-8') if raw_pw else None
+        with open(_MY_PRI, 'rb') as f:
+            pri_key = serialization.load_pem_private_key(
+                f.read(), password=pw_bytes, backend=default_backend()
+            )
+    except Exception as e:
+        print(f'无法加载私钥：{e}')
+        return
 
-        ciphertext = bytes.fromhex(input('请输入要解密的数据：'))
+    hex_ct = input('请输入十六进制密文：').strip()
+    try:
+        ciphertext = bytes.fromhex(hex_ct)
+    except ValueError:
+        print('十六进制密文无效。')
+        return
+    try:
+        SEG = 256
+        plaintext = b''.join(
+            pri_key.decrypt(
+                ciphertext[i:i + SEG],
+                padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                             algorithm=hashes.SHA256(), label=None)
+            )
+            for i in range(0, len(ciphertext), SEG)
+        )
+        print('解密结果：', plaintext.decode('utf-8'))
+    except Exception as e:
+        print(f'解密失败：{e}')
 
-        data = private_key.decrypt(ciphertext, padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),
-                                                            algorithm=hashes.SHA256(), label=None))
-        print('解密后的数据为：', data.decode('utf-8'))
 
 def calculate_hashes():
-    path = input('请输入文件路径：')
+    path = input('请输入文件路径：').strip()
     if os.path.isfile(path):
         with open(path, 'rb') as f:
             data = f.read()
-            
-            md5_hash = hashlib.md5(data).hexdigest()
-            sha1_hash = hashlib.sha1(data).hexdigest()
-            sha256_hash = hashlib.sha256(data).hexdigest()
-
-            print('MD5:', md5_hash)
-            print('SHA1:', sha1_hash)
-            print('SHA256:', sha256_hash)
+        print('MD5   :', hashlib.md5(data).hexdigest())
+        print('SHA1  :', hashlib.sha1(data).hexdigest())
+        print('SHA256:', hashlib.sha256(data).hexdigest())
     else:
-        print('文件不存在，请检查路径是否正确。')
+        print('文件不存在，请检查路径。')
+
 
 def compare_hashes():
-    path = input('请输入文件路径：')
-    file_hash = input('请输入哈希（MD5/SHA1/SHA256）：')
-    if os.path.isfile(path):
-        if file_hash:
-            with open(path, 'rb') as f:
-                data = f.read()
-                
-                md5_hash = hashlib.md5(data).hexdigest()
-                sha1_hash = hashlib.sha1(data).hexdigest()
-                sha256_hash = hashlib.sha256(data).hexdigest()
-                
-                match_found = False
-                if file_hash == md5_hash:
-                    print(Fore.GREEN + 'MD5校验通过:' + Style.RESET_ALL, path)
-                    print(Fore.GREEN + '哈希值:' + Style.RESET_ALL, md5_hash)
-                    match_found = True
-                if file_hash == sha1_hash:
-                    print(Fore.GREEN + 'SHA1校验通过:' + Style.RESET_ALL, path)
-                    print(Fore.GREEN + '哈希值:' + Style.RESET_ALL, sha1_hash)
-                    match_found = True
-                if file_hash == sha256_hash:
-                    print(Fore.GREEN + 'SHA256校验通过:' + Style.RESET_ALL, path)
-                    print(Fore.GREEN + '哈希值:' + Style.RESET_ALL, sha256_hash)
-                    match_found = True
-                if not match_found:
-                    print(Fore.RED + '哈希校验失败，文件可能已被修改' + Style.RESET_ALL)
-        else:
-            print('输哈希了吗你就点啊？')
-    else:
-        print('文件不存在，请检查路径是否正确。')
+    path = input('请输入文件路径：').strip()
+    file_hash = input('请输入哈希值（MD5/SHA1/SHA256）：').strip()
+    if not os.path.isfile(path):
+        print('文件不存在，请检查路径。')
+        return
+    if not file_hash:
+        print('未输入哈希值。')
+        return
+    with open(path, 'rb') as f:
+        data = f.read()
+    checks = {
+        'MD5':    hashlib.md5(data).hexdigest(),
+        'SHA1':   hashlib.sha1(data).hexdigest(),
+        'SHA256': hashlib.sha256(data).hexdigest(),
+    }
+    matched = False
+    for algo, digest in checks.items():
+        if file_hash.lower() == digest:
+            print(Fore.GREEN + f'{algo} 校验通过：{path}' + Style.RESET_ALL)
+            print(Fore.GREEN + f'哈希值：{digest}' + Style.RESET_ALL)
+            matched = True
+    if not matched:
+        print(Fore.RED + '哈希校验失败 —— 文件可能已被篡改。' + Style.RESET_ALL)
+
 
 def main_menu():
     print("----------------")
-    print("1. 生成RSA密钥对")
-    print("2. 导入他人公钥")
-    print("3. 加密数据")
-    print("4. 解密数据")
-    print("5. 计算文件哈希值")
-    print("6. 校验哈希")
+    print("1. 生成 RSA 密钥对")
+    print("2. 导入对方公钥")
+    print("3. 加密文本")
+    print("4. 解密文本")
+    print("5. 计算文件哈希")
+    print("6. 校验文件哈希")
     print("7. 退出")
     print("----------------")
 
+
 while True:
     main_menu()
-    choice = input('请输入选项：')
-
+    choice = input('请输入选项：').strip()
     if choice == '1':
         generate_key_pair()
         time.sleep(1)
@@ -178,19 +223,19 @@ while True:
         import_public_key()
     elif choice == '3':
         encrypt_data()
-        input("按下回车继续...")
+        input('按下回车继续...')
     elif choice == '4':
         decrypt_data()
-        input("按下回车继续...")
+        input('按下回车继续...')
     elif choice == '5':
         calculate_hashes()
-        input("按下回车继续...")
+        input('按下回车继续...')
     elif choice == '6':
         compare_hashes()
-        input("按下回车继续...")
+        input('按下回车继续...')
     elif choice == '7':
-        print('程序已退出。')
+        print('再见。')
         break
     else:
-        print('选项不正确，请重新选择。')
-        input("按下回车继续...")
+        print('选项无效，请重新输入。')
+        input('按下回车继续...')
