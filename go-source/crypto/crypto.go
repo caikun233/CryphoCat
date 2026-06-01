@@ -16,6 +16,9 @@ import (
 // using the legacy pem.EncryptPEMBlock mechanism (compatible with OpenSSL 1.x).
 // The unencrypted form uses PKCS#8 (header: PRIVATE KEY).
 func GenerateKeyPair(keySize int, passphrase []byte, privPath, pubPath string) error {
+	if keySize < 2048 {
+		return fmt.Errorf("key size must be at least 2048 bits (got %d)", keySize)
+	}
 	priv, err := rsa.GenerateKey(rand.Reader, keySize)
 	if err != nil {
 		return fmt.Errorf("key generation: %w", err)
