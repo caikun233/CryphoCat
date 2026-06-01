@@ -1,78 +1,67 @@
 # CryphoCat
-Encrypt your chatting with me, meow~
 
-Currently only Simplified Chinese and English are supported.
+Offline asymmetric encryption tool for private messaging. Supports RSA, ECC, Curve25519, and Kyber post-quantum algorithms. Single executable — double-click to launch native Windows GUI, or run in a terminal for interactive CLI mode.
 
-![](https://img.shields.io/badge/go-1.25-blue)
+![](https://img.shields.io/badge/go-1.22-blue)
 ![GitHub](https://img.shields.io/github/license/caikun233/CryphoCat)
 
-**中文README请参照**[README.zhcn.md](https://github.com/caikun233/CryphoCat/blob/main/README.zhcn.md)
+[中文说明](README.zhcn.md)
 
-* Support asymmetric encryption of arbitrary length text using RSA (1024/2048/4096-bit, selectable in CLI; 2048-bit in GUI).
-* The key directory generation rules in the "two-person chat" scenario have been built in. You can Pull Request to add more.
-* All offline processing, and open source, do not upload any data, decoupled from the chat software.
-* As long as your chat software can guarantee that the information sent and received is the same, then the content of your communication will never be revealed.
-* **Not Support Audio/Video At All, Unless there is a way to convert audio/video to text**.
-* You can base64 encode the picture and send it out, and I may add the base64 encoding function to the software later.
+## Highlights
 
-## INSTALLATION & USAGE
+- **10 cryptographic algorithms**: RSA-2048/3072/4096, ECC P-256/P-384/P-521, Curve25519, Kyber-512/768/1024
+- **Compact output**: Base64 + zlib compression reduces ciphertext length by ~60% compared to hex encoding
+- **Memory-first**: keys default to in-memory storage, disk optional
+- **Image support**: load an image and it will be auto-encoded to base64 before encryption; on decryption, images are detected and displayed in a preview window
+- **Clipboard integration**: one-click copy of your public key; import a friend's key directly from the clipboard
+- **File hashing**: built-in MD5 / SHA1 / SHA256 computation and verification
+- **Native Windows GUI**, ~7.7 MB binary
+- **10 interface languages**: EN, 简体中文, 繁體中文(臺灣/香港), 日本語, 한국어, Русский, Français, Deutsch, Español
+- Fully offline, no telemetry, no data leaves your machine
 
-### Linux / Windows / macOS CLI 🔨
+## Quick Start
 
-1. Download the CLI binary for your platform from **Actions** artifacts, or build from source (see below).
+Download from [Releases](https://github.com/caikun233/CryphoCat/releases).
 
-2. Run it:
-
-   ```
-   ./CryphoCat_CLI_linux_amd64
-   ```
-
-   Use `--lang zhcn` for Chinese interface:
-
-   ```
-   ./CryphoCat_CLI_linux_amd64 --lang zhcn
-   ```
-
-3. The program will automatically create a folder named `RSAkeys` in the current directory, with `my/` and `friend/` sub-folders to store your key pair and your chat partner's public key.
-
-### Linux / Windows GUI 🔨
-
-1. Download the GUI binary from **Actions** artifacts. **x64 only**.
-2. Double-click to run (Windows), or `./CryphoCat_GUI_linux_amd64` on Linux.
-3. Use `--lang zhcn` flag for Chinese interface:
-
-   ```
-   ./CryphoCat_GUI_linux_amd64 --lang zhcn
-   ```
-
-### Build from Source 🛠
-
-Requires **Go 1.25+**. On Linux also install:
 ```
-sudo apt-get install libx11-dev libxcursor-dev libxrandr-dev libxinerama-dev \
-  libxi-dev libgl1-mesa-dev libxxf86vm-dev pkg-config
+cryphocat.exe                    # auto-detect: terminal -> CLI, double-click -> GUI
+cryphocat.exe --gui              # force GUI
+cryphocat.exe --cli --lang zhcn  # force CLI, Chinese interface
 ```
 
-```bash
+Keys are stored in `.cryphocat_keys/` by default, or in memory only when the checkbox is ticked.
+
+## Build
+
+Requires Go 1.22+. Install `rsrc` once: `go install github.com/akavel/rsrc@latest`.
+
+```
 cd go-source
+rsrc -manifest cryphocat.manifest -ico favicon.ico -o rsrc.syso
+go build -ldflags="-s -w" -o cryphocat.exe .
+go test ./...                     # run tests
+```
 
-# GUI build (default):
-go build -o CryphoCat .
+Non-Windows builds (CLI only): skip `rsrc`, just run `go build`.
 
-# CLI-only build (no GUI, no OpenGL dependency):
-go build -tags cli -o CryphoCat_CLI .
+## Release Process
 
-# Run tests:
-go test ./...
+Push a version tag to trigger automatic build and GitHub Release:
+
+```shell
+git tag v1.0.0
+git push origin v1.0.0
 ```
 
 ## Development Plan
 
-- [x] Add English support for releases and source code.
-- [x] Finish GUI version development.
-- [x] Make RSA key length optional (CLI supports 1024/2048/4096).
-- [x] Let the encrypted text be copied automatically.
-- [x] Calculate and compare file hashes (MD5 / SHA1 / SHA256).
-- [x] Rewrite in Go with Fyne GUI (single self-contained binary, no Python required).
-- [ ] Make GUI more beautiful.
-- [ ] Try to add images base64 encode.
+- [x] RSA-OAEP, ECC (ECDH+AES-GCM), Curve25519, Kyber ML-KEM encryption
+- [x] File hash computation and verification (MD5/SHA1/SHA256)
+- [x] Auto-copy ciphertext to clipboard; import/export keys via clipboard
+- [x] 10-language i18n with automatic OS language detection on Windows
+- [x] Native Windows GUI (~7.7 MB, down from 42 MB)
+- [x] Auto-detect CLI vs GUI mode at startup
+- [x] Tag-triggered GitHub Release with auto-generated release notes
+- [x] Image loading for base64-encoding before encryption, with preview on decryption
+- [x] Base64+zlib compact output encoding
+- [x] In-memory key storage

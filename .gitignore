@@ -1,0 +1,31 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+cryphocat
+cryphocat.exe
+
+# Resource file (generated)
+go-source/rsrc.syso
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build output
+dist/
+build/
+
+# Key store (local keys – NEVER commit real keys!)
+.cryphocat_keys/
+keys/
+RSAkeys/

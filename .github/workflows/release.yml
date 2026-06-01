@@ -1,0 +1,55 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go-source/go.mod
+
+      - name: Install rsrc
+        run: go install github.com/akavel/rsrc@latest
+
+      - name: Generate manifest
+        working-directory: go-source
+        run: rsrc -manifest cryphocat.manifest -ico favicon.ico -o rsrc.syso
+
+      - name: Build
+        working-directory: go-source
+        run: go build -ldflags="-s -w" -o cryphocat.exe .
+
+      - name: Read release notes
+        id: notes
+        shell: pwsh
+        run: |
+          $body = Get-Content .github/release/releasenote.md -Raw -Encoding UTF8
+          "body<<EOF" >> $env:GITHUB_OUTPUT
+          "$body" >> $env:GITHUB_OUTPUT
+          "EOF" >> $env:GITHUB_OUTPUT
+
+      - name: Prepare artifact
+        shell: pwsh
+        run: |
+          $tag  = "${{ github.ref_name }}"
+          $hash = "${{ github.sha }}".Substring(0, 7)
+          $name = "CryphoCat-windows-amd64-$tag-$hash.exe"
+          Move-Item go-source/cryphocat.exe $name
+          echo "artifact=$name" >> $env:GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: CryphoCat-windows-amd64-*.exe
+          body: ${{ steps.notes.outputs.body }}
+          generate_release_notes: false
