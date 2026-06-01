@@ -1,0 +1,79 @@
+name: Build Go Executables
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  build-linux:
+    name: Build Linux (amd64)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go-source/go.mod
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y \
+            libx11-dev libxcursor-dev libxrandr-dev libxinerama-dev \
+            libxi-dev libgl1-mesa-dev libxxf86vm-dev pkg-config
+
+      - name: Build CLI (Linux)
+        working-directory: go-source
+        run: go build -o CryphoCat_CLI_linux_amd64 -tags cli .
+
+      - name: Build GUI (Linux)
+        working-directory: go-source
+        run: go build -o CryphoCat_GUI_linux_amd64 .
+
+      - name: Upload CLI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CryphoCat_CLI_linux_amd64
+          path: go-source/CryphoCat_CLI_linux_amd64
+
+      - name: Upload GUI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CryphoCat_GUI_linux_amd64
+          path: go-source/CryphoCat_GUI_linux_amd64
+
+  build-windows:
+    name: Build Windows (amd64)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go-source/go.mod
+
+      - name: Build CLI (Windows)
+        working-directory: go-source
+        run: go build -o CryphoCat_CLI_windows_amd64.exe -tags cli .
+
+      - name: Build GUI (Windows, no console window)
+        working-directory: go-source
+        run: go build -ldflags "-H windowsgui" -o CryphoCat_GUI_windows_amd64.exe .
+
+      - name: Upload CLI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CryphoCat_CLI_windows_amd64.exe
+          path: go-source/CryphoCat_CLI_windows_amd64.exe
+
+      - name: Upload GUI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CryphoCat_GUI_windows_amd64.exe
+          path: go-source/CryphoCat_GUI_windows_amd64.exe
