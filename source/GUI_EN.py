@@ -188,9 +188,10 @@ def decrypt_data():
         return
     try:
         with open(_MY_PRI, 'rb') as f:
-            pri_key = serialization.load_pem_private_key(
-                f.read(), password=passphrase, backend=default_backend()
-            )
+            pem_data = f.read()
+        pri_key = serialization.load_pem_private_key(
+            pem_data, password=passphrase, backend=default_backend()
+        )
     except Exception as e:
         messagebox.showerror("Error", f"Cannot load private key: {e}", parent=root)
         return
